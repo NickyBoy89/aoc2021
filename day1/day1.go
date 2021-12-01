@@ -26,7 +26,7 @@ func part1() {
 		prev = num
 	}
 
-	fmt.Println(numPrev - 1)
+	fmt.Println(numPrev)
 }
 
 func part2() {
