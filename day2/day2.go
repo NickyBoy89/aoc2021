@@ -14,8 +14,9 @@ func main() {
 	}
 
 	input := strings.Split(string(rawInput), "\n")
+	input = input[:len(input)-1]
 
-	//part1(input)
+	part1(input)
 	part2(input)
 }
 
@@ -23,9 +24,6 @@ func part1(lines []string) {
 	var position, depth int
 
 	for _, line := range lines {
-		if line == "" {
-			continue
-		}
 		parts := strings.Split(line, " ")
 		num, err := strconv.Atoi(parts[1])
 		if err != nil {
@@ -51,9 +49,6 @@ func part2(lines []string) {
 	var position, depth, aim int
 
 	for _, line := range lines {
-		if line == "" {
-			continue
-		}
 		parts := strings.Split(line, " ")
 		num, err := strconv.Atoi(parts[1])
 		if err != nil {
