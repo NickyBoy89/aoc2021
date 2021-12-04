@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -15,7 +16,7 @@ func main() {
 	input := strings.Split(string(rawInput), "\n")
 	input = input[:len(input)-1]
 
-	//part1(input)
+	part1(input)
 	part2(input)
 }
 
@@ -42,10 +43,14 @@ func part1(lines []string) {
 		}
 	}
 
-	n1 := toDecimal(string(gamma))
-	n2 := toDecimal(invert(string(gamma)))
+	gammaNum, err := strconv.ParseUint(string(gamma), 2, 64)
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println(string(gamma), n1, string(gamma), n2, n1*n2)
+	omega := ^gammaNum ^ (^uint64(0) << len(string(gamma)))
+
+	fmt.Println(gammaNum * omega)
 }
 
 func part2(lines []string) {
@@ -74,7 +79,10 @@ func part2(lines []string) {
 		}
 	}
 
-	gamma := pool[0]
+	gamma, err := strconv.ParseInt(pool[0], 2, 64)
+	if err != nil {
+		panic(err)
+	}
 
 	pool = make([]string, len(lines))
 	copy(pool, lines)
@@ -104,14 +112,12 @@ func part2(lines []string) {
 		}
 	}
 
-	omega := pool[0]
+	omega, err := strconv.ParseInt(pool[0], 2, 64)
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println(gamma, omega)
-
-	n1 := toDecimal(gamma)
-	n2 := toDecimal(string(omega))
-
-	fmt.Println(n1 * n2)
+	fmt.Println(gamma * omega)
 }
 
 func countBits(lines []string) (zeroes, ones []int) {
@@ -129,24 +135,4 @@ func countBits(lines []string) (zeroes, ones []int) {
 	}
 
 	return zeroes, ones
-}
-
-func toDecimal(input string) int {
-	var result int
-	for ind, char := range input {
-		if char == '1' {
-			result |= 1 << (len(input) - ind - 1)
-		}
-	}
-	return result
-}
-
-func invert(input string) string {
-	result := make([]rune, len(input))
-	for ind, char := range input {
-		if char == '0' {
-			result[ind] = '1'
-		}
-	}
-	return string(result)
 }
