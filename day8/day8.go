@@ -3,40 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+
+	mapset "github.com/deckarep/golang-set"
 )
-
-var digitNumbers = map[int]int{
-	0: 6,
-	1: 2,
-	2: 5,
-	3: 5,
-	4: 4,
-	5: 5,
-	6: 6,
-	7: 3,
-	8: 7,
-	9: 6,
-}
-
-func digitsToNumber(digits int) int {
-	for number, segments := range digitNumbers {
-		if digits == segments {
-			return number
-		}
-	}
-	panic("asds")
-}
-
-func plausibleSegments(number int) []int {
-	count := []int{}
-	for num, segments := range digitNumbers {
-		if segments == number {
-			count = append(count, num)
-		}
-	}
-	return count
-}
 
 // Display is a list of maps from the characters, and the possible digits
 type Display []map[string][]int
@@ -54,37 +25,12 @@ func main() {
 	outputs := make([][]string, len(input))
 	for ind, inp := range input {
 		parts := strings.Split(inp, "|")
-		inputs[ind] = strings.Split(parts[0], " ")[1:]
-		outputs[ind] = strings.Split(parts[1], " ")[1:]
+		inputs[ind] = strings.Split(parts[0], " ")
+		outputs[ind] = strings.Split(parts[1], " ")
 	}
 
 	part1(inputs, outputs)
 	part2(inputs, outputs)
-}
-
-func numRange(n int) []int {
-	result := make([]int, n)
-	for ind := 0; ind < n; ind++ {
-		result[ind] = ind
-	}
-	return result
-}
-
-func remove(nums []int, number int) []int {
-	toRemove := -1
-	for ind, n := range nums {
-		if n == number {
-			toRemove = ind
-			break
-		}
-	}
-
-	if toRemove == -1 {
-		return nums
-	}
-
-	nums[toRemove] = nums[len(nums)-1]
-	return nums[:len(nums)-1]
 }
 
 func part1(inputs, outputs [][]string) {
@@ -97,106 +43,88 @@ func part1(inputs, outputs [][]string) {
 			switch len(group) {
 			case 2, 4, 3, 7:
 				overlapped++
-				/*
-					case 2: // 1
-						display[ind][group] = []int{1}
-					case 4: // 4
-						display[ind][group] = []int{4}
-					case 3: // 7
-						display[ind][group] = []int{7}
-					case 7: // 8
-						display[ind][group] = []int{8}
-					default:
-						//display[ind][group] = numRange(len(inputs[lineNumber]))
-				*/
 			}
 		}
-
-		/*
-			fmt.Println(display)
-
-			for _, group := range display {
-				for name, possible := range group {
-					if len(possible) != 1 {
-						continue
-					}
-					fmt.Println(outputs[lineNumber])
-					for _, inp := range outputs[lineNumber] {
-						if name == inp {
-							fmt.Println(name)
-							overlapped++
-						}
-					}
-				}
-			}
-		*/
 	}
 	fmt.Println(overlapped)
 }
 
-func filterStep(inputs Display) Display {
-	for _, display := range inputs {
-		for digits, possibleVals := range display {
-
-			if len(possibleVals) == 1 {
-				for ind := range inputs {
-					for i, j := range inputs[ind] {
-						if i == digits {
-							continue
-						}
-						inputs[ind][i] = remove(inputs[ind][i], possibleVals[0])
-						_ = j
-					}
-				}
-			}
-		}
-	}
-	return inputs
-}
-
-func union(n1, n2 []string) []string {
-	fmt.Println(n1, n2)
-	union := []string{}
-	for _, i := range n1 {
-		for _, j := range n2 {
-			if j == i {
-				union = append(union, i)
-			}
-		}
-	}
-	fmt.Println(union)
-	return union
-}
-
 func part2(inputs, outputs [][]string) {
+	var total int
 	// For every line
 	for lineNumber := range inputs {
-		possible := make(map[int][]string)
+		// Every digit and its known possibilities
+		known := make(map[int]mapset.Set)
 
 		for _, digits := range inputs[lineNumber] {
-			positions := []int{}
-			switch len(digits) {
-			case 2:
-				positions = []int{2, 5}
-			case 4:
-				positions = []int{1, 2, 3, 5}
-			case 3:
-				positions = []int{0, 2, 5}
-			case 7:
-				positions = []int{0, 1, 2, 3, 4, 5, 6, 7}
-			case 5, 6:
-				positions = numRange(8)
+			digitSet := mapset.NewSet()
+			for _, d := range digits {
+				digitSet.Add(string(d))
 			}
+			switch len(digits) {
+			case 2: // 1
+				known[1] = digitSet
+			case 3: // 7
+				known[7] = digitSet
+			case 7: // 8
+				known[8] = digitSet
+			case 4: // 4
+				known[4] = digitSet
+			}
+		}
 
-			for _, pos := range positions {
-				if len(possible[pos]) == 0 {
-					possible[pos] = strings.Split(digits, "")
-				} else {
-					possible[pos] = union(possible[pos], strings.Split(digits, ""))
+		for _, digits := range inputs[lineNumber] {
+			digitSet := mapset.NewSet()
+			for _, d := range digits {
+				digitSet.Add(string(d))
+			}
+			if len(digits) == 5 && known[1].Difference(digitSet).Cardinality() == 0 {
+				known[3] = digitSet
+			} else if len(digits) == 6 {
+				if known[1].Difference(digitSet).Cardinality() == 1 {
+					known[6] = digitSet
+				} else if known[4].Difference(digitSet).Cardinality() == 0 {
+					known[9] = digitSet
+				} else if known[4].Difference(digitSet).Cardinality() == 1 {
+					known[0] = digitSet
 				}
 			}
 		}
 
-		fmt.Println(possible)
+		for _, digits := range inputs[lineNumber] {
+			digitSet := mapset.NewSet()
+			for _, d := range digits {
+				digitSet.Add(string(d))
+			}
+			if len(digits) != 5 || digitSet.Equal(known[3]) {
+				continue
+			}
+
+			if digitSet.Contains(known[1].Difference(known[6]).ToSlice()[0]) {
+				known[2] = digitSet
+			} else {
+				known[5] = digitSet
+			}
+		}
+
+		var result string
+		for _, digits := range outputs[lineNumber] {
+			digitSet := mapset.NewSet()
+			for _, d := range digits {
+				digitSet.Add(string(d))
+			}
+			for k, v := range known {
+				if v.Equal(digitSet) {
+					result += fmt.Sprintf("%v", k)
+				}
+			}
+		}
+
+		num, err := strconv.Atoi(result)
+		if err != nil {
+			panic(err)
+		}
+		total += num
 	}
+	fmt.Println(total)
 }
