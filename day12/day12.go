@@ -25,60 +25,35 @@ func main() {
 	input := strings.Split(string(rawInput), "\n")
 	input = input[:len(input)-1]
 
-	paths := make([]Path, len(input))
-	for ind, line := range input {
+	nodes := make(map[string][]string)
+
+	for _, line := range input {
 		parts := strings.Split(line, "-")
-		paths[ind] = Path{parts[0], parts[1]}
+		nodes[parts[0]] = append(nodes[parts[0]], parts[1])
+		nodes[parts[1]] = append(nodes[parts[1]], parts[0])
 	}
 
-	part1(paths)
-	part2(paths)
+	part1(nodes)
+	part2(nodes)
 }
 
-type Node struct {
-	Name        string
-	Connections map[string]*Node
+func part1(nodes map[string][]string) {
+	fmt.Println(Search(nodes, "start", "end", make(map[string]int)))
 }
 
-func (n *Node) String() string {
-	return fmt.Sprintf("Node: %v", n.Name)
-}
-
-func (n *Node) AddEdge(other *Node) {
-	n.Connections[other.Name] = other
-	other.Connections[n.Name] = n
-}
-
-func part1(paths []Path) {
-	nodes := make(map[string]*Node)
-	for _, path := range paths {
-		if _, exist := nodes[path.Start]; !exist {
-			nodes[path.Start] = &Node{Name: path.Start, Connections: make(map[string]*Node)}
-		}
-		if _, exist := nodes[path.End]; !exist {
-			nodes[path.End] = &Node{Name: path.End, Connections: make(map[string]*Node)}
-		}
-		nodes[path.Start].AddEdge(nodes[path.End])
-	}
-
-	fmt.Println(Search(nodes["start"], "end", make(map[string]int)))
-}
-
-func Search(node *Node, target string, visited map[string]int) int {
-	fmt.Println(node.Name, len(node.Connections), visited)
+func Search(nodes map[string][]string, node, target string, visited map[string]int) int {
+	visited[node]++
 	var total int
-
-	for name, connection := range node.Connections {
-		if name == "end" {
+	for _, other := range nodes[node] {
+		if other == target {
 			total++
-		}
-		if unicode.IsLower(rune(node.Name[0])) && visited[name] > 0 {
 			continue
 		}
-		visited[name]++
-		total += Search(connection, target, DeepCopy(visited))
+		if unicode.IsLower(rune(other[0])) && visited[other] > 0 {
+			continue
+		}
+		total += Search(nodes, other, target, DeepCopy(visited))
 	}
-
 	return total
 }
 
@@ -90,5 +65,25 @@ func DeepCopy(m map[string]int) map[string]int {
 	return result
 }
 
-func part2(paths []Path) {
+func part2(nodes map[string][]string) {
+	fmt.Println(Search2(nodes, "start", "end", make(map[string]int), false))
+}
+
+func Search2(nodes map[string][]string, node, target string, visited map[string]int, doubled bool) int {
+	visited[node]++
+	var total int
+	for _, other := range nodes[node] {
+		if other == target {
+			total++
+			continue
+		}
+		if unicode.IsLower(rune(other[0])) && visited[other] > 0 {
+			if doubled {
+				continue
+			}
+			doubled = true
+		}
+		total += Search2(nodes, other, target, DeepCopy(visited), doubled)
+	}
+	return total
 }
