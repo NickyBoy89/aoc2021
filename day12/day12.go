@@ -66,24 +66,47 @@ func DeepCopy(m map[string]int) map[string]int {
 }
 
 func part2(nodes map[string][]string) {
-	fmt.Println(Search2(nodes, "start", "end", make(map[string]int), false))
+	found := Search2(nodes, "start", "end", make(map[string]int), "")
+	fmt.Println(Filter(found))
+	fmt.Println(len(Filter(found)))
 }
 
-func Search2(nodes map[string][]string, node, target string, visited map[string]int, doubled bool) int {
+func Filter(paths []string) []string {
+	valid := []string{}
+	for _, path := range paths {
+		nodeCounts := make(map[string]int)
+		nodes := strings.Split(path, "->")
+		var hasDuplicates bool
+		for _, node := range nodes {
+			nodeCounts[node]++
+			if nodeCounts[node] > 1 && unicode.IsLower(rune(node[0])) {
+				hasDuplicates = true
+				break
+			}
+		}
+		if !hasDuplicates {
+			valid = append(valid, path)
+		}
+	}
+	return valid
+}
+
+func Search2(nodes map[string][]string, node, target string, visited map[string]int, path string) []string {
+	path += node + "->"
 	visited[node]++
-	var total int
+	total := []string{}
 	for _, other := range nodes[node] {
 		if other == target {
-			total++
+			total = append(total, path+target)
 			continue
 		}
-		if unicode.IsLower(rune(other[0])) && visited[other] > 0 {
-			if doubled {
-				continue
-			}
-			doubled = true
+		if other == "start" {
+			continue
 		}
-		total += Search2(nodes, other, target, DeepCopy(visited), doubled)
+		if unicode.IsLower(rune(other[0])) && visited[other] > 1 {
+			continue
+		}
+		total = append(total, Search2(nodes, other, target, DeepCopy(visited), path)...)
 	}
 	return total
 }
