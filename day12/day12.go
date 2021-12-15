@@ -66,29 +66,25 @@ func DeepCopy(m map[string]int) map[string]int {
 }
 
 func part2(nodes map[string][]string) {
-	found := Search2(nodes, "start", "end", make(map[string]int), "")
-	fmt.Println(Filter(found))
-	fmt.Println(len(Filter(found)))
+	fmt.Println(len(Search2(nodes, "start", "end", make(map[string]int), "")))
 }
 
-func Filter(paths []string) []string {
-	valid := []string{}
-	for _, path := range paths {
-		nodeCounts := make(map[string]int)
-		nodes := strings.Split(path, "->")
-		var hasDuplicates bool
-		for _, node := range nodes {
-			nodeCounts[node]++
-			if nodeCounts[node] > 1 && unicode.IsLower(rune(node[0])) {
-				hasDuplicates = true
-				break
+func PathValid(path string) bool {
+	nodeCounts := make(map[string]int)
+	nodes := strings.Split(path, "->")
+	validPath := true
+	var duplicate bool
+	for _, node := range nodes {
+		nodeCounts[node]++
+		if nodeCounts[node] > 1 && unicode.IsLower(rune(node[0])) {
+			if !duplicate {
+				duplicate = true
+			} else {
+				validPath = false
 			}
 		}
-		if !hasDuplicates {
-			valid = append(valid, path)
-		}
 	}
-	return valid
+	return validPath
 }
 
 func Search2(nodes map[string][]string, node, target string, visited map[string]int, path string) []string {
@@ -97,7 +93,9 @@ func Search2(nodes map[string][]string, node, target string, visited map[string]
 	total := []string{}
 	for _, other := range nodes[node] {
 		if other == target {
-			total = append(total, path+target)
+			if PathValid(path + target) {
+				total = append(total, path+target)
+			}
 			continue
 		}
 		if other == "start" {
