@@ -61,32 +61,7 @@ func part1(template []rune, rules map[string]rune) {
 }
 
 func part2(template []rune, rules map[string]rune) {
-	counts := polyTree(template, rules, 2, make(map[string]string))
-	fmt.Println(counts)
-	var max int
-	min := -1
-
-	for _, count := range counts {
-		if count > max {
-			max = count
-		}
-		if min == -1 || count < min {
-			min = count
-		}
-	}
+	counts := make(map[rune]int)
 
 	fmt.Println(max - min)
-}
-
-func polyTree(template []rune, rules map[string]rune, steps int, recipes map[string]string) map[rune]int {
-	counts := make(map[rune]int)
-	for ind := range template {
-		if ind < len(template)-1 {
-			pair := string(template[ind : ind+2])
-			if _, in := recipes[pair]; !in {
-				recipes[pair] = string(pair[0]) + string(rules[pair]) + string(pair[1])
-			}
-		}
-	}
-	return counts
 }
