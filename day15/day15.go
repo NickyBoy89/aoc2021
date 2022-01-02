@@ -1,9 +1,73 @@
 package main
 
 import (
+	"container/heap"
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
+
+type Point struct {
+	X, Y int
+}
+
+func (p Point) Mul(f int) Point {
+	return Point{p.X * f, p.Y * f}
+}
+
+func (p Point) Neighbors(grid map[Point]int) []Point {
+	nei := []Point{
+		Point{p.X - 1, p.Y},
+		Point{p.X + 1, p.Y},
+		Point{p.X, p.Y - 1},
+		Point{p.X, p.Y + 1},
+	}
+
+	valid := []Point{}
+
+	for _, item := range nei {
+		if _, in := grid[item]; in {
+			valid = append(valid, item)
+		}
+	}
+
+	return valid
+}
+
+func d(source, target Point, grid map[Point]int) int {
+	frontier := PriorityQueue{&Item{
+		value:    source,
+		priority: 0,
+		index:    0,
+	}}
+	heap.Init(&frontier)
+	came_from := make(map[Point]Point)
+	cost_so_far := make(map[Point]int)
+	came_from[source] = Point{-1, -1}
+	cost_so_far[source] = 0
+
+	for frontier.Len() != 0 {
+		current := heap.Pop(&frontier).(*Item)
+		if current.value == target {
+			return current.priority
+		}
+
+		for _, next := range current.value.Neighbors(grid) {
+			new_cost := cost_so_far[current.value] + grid[next]
+			if _, in := cost_so_far[next]; !in || new_cost < cost_so_far[next] {
+				cost_so_far[next] = new_cost
+				item := &Item{
+					value:    next,
+					priority: new_cost,
+				}
+				heap.Push(&frontier, item)
+				came_from[next] = current.value
+			}
+		}
+	}
+	panic("No path")
+}
 
 func main() {
 	rawInput, err := os.ReadFile("input")
@@ -19,105 +83,68 @@ func main() {
 }
 
 func part1(input []string) {
-}
-
-func part2(input []string) {
-}
-
-type Point struct {
-	X, Y int
-}
-
-func manhattanDistance(p1, p2 Point) int {
-	return abs(p2.Y-p1.Y) + abs(p2.X-p1.X)
-}
-
-func abs(n int) int {
-	if n < 0 {
-		return -n
-	}
-	return n
-}
-
-func reconstruct_path(cameFrom map[Point]Point, current Point) []Point {
-	total_path := []Point{current}
-	for _, current := range cameFrom {
-		total_path = append([]Point{current}, total_path...)
-	}
-	return total_path
-}
-
-func minInSet(set map[Point]int) Point {
-	min := -1
-	var minItem Point
-	for item, score := range set {
-		if score == -1 || score < min {
-			min = score
-			minItem = item
+	graph := make(map[Point]int)
+	for ri := range input {
+		for ci := range input[ri] {
+			n, err := strconv.Atoi(string(input[ri][ci]))
+			if err != nil {
+				panic(err)
+			}
+			graph[Point{X: ci, Y: ri}] = n
 		}
 	}
-	return minItem
+
+	fmt.Println(d(Point{0, 0}, Point{len(input) - 1, len(input[0]) - 1}, graph))
 }
 
-// A* finds a path from start to goal.
-// h is the heuristic function. h(n) estimates the cost to reach goal from node n.
-func A_Star(start, goal Point, h func(p1, p2 Point) int) []Point {
-	// The set of discovered nodes that may need to be (re-)expanded.
-	// Initially, only the start node is known.
-	// This is usually implemented as a min-heap or priority queue rather than a hash-set.
-	openSet := map[Point]struct{}{start: struct{}{}}
+func printMap(graph map[Point]int, width, height int) {
+	result := make([][]int, height)
+	for ri := range result {
+		result[ri] = make([]int, width)
+	}
+	for node, weight := range graph {
+		result[node.Y][node.X] = weight
+	}
 
-	// For node n, cameFrom[n] is the node immediately preceding it on the cheapest path from start
-	// to n currently known.
-	cameFrom := make(map[Point]Point)
+	for _, line := range result {
+		for _, char := range line {
+			fmt.Printf("%v", char)
+		}
+		fmt.Println("")
+	}
+}
 
-	// For node n, gScore[n] is the cost of the cheapest path from start to n currently known.
-	gScore := make(map[Point]int)
-	gScore[start] = 0
-
-	// For node n, fScore[n] := gScore[n] + h(n). fScore[n] represents our current best guess as to
-	// how short a path from start to finish can be if it goes through n.
-	fScore := make(map[Point]int)
-	fScore[start] = h(start, goal)
-
-	for len(openSet) != 0 {
-		// This operation can occur in O(1) time if openSet is a min-heap or a priority queue
-		// current := the node in openSet having the lowest fScore[] value
-		current := minInSet(fScore)
-		if current == goal {
-			return reconstruct_path(cameFrom, current)
-		}
-
-		delete(openSet, current)
-		neighbors := []Point{}
-		if current.X > 0 {
-			neighbors = append(neighbors, Point{current.X + 1, current.Y})
-		}
-		if current.X > 0 {
-			neighbors = append(neighbors, Point{current.X - 1, current.Y})
-		}
-		if current.X > 0 {
-			neighbors = append(neighbors, Point{current.X, current.Y + 1})
-		}
-		if current.X > 0 {
-			neighbors = append(neighbors, Point{current.X, current.Y - 1})
-		}
-		for _, neighbor := range neighbors {
-			// d(current,neighbor) is the weight of the edge from current to neighbor
-			// tentative_gScore is the distance from start to the neighbor through current
-			tentative_gScore := gScore[current] + d(current, neighbor)
-			if tentative_gScore < gScore[neighbor] {
-				// This path to neighbor is better than any previous one. Record it!
-				cameFrom[neighbor] = current
-				gScore[neighbor] = tentative_gScore
-				fScore[neighbor] = tentative_gScore + h(neighbor, goal)
-				if _, in := openSet[neighbor]; !in {
-					openSet[neighbor] = struct{}{}
+func expandMap(graph map[Point]int, factor, width, height int) map[Point]int {
+	expanded := make(map[Point]int)
+	for point, weight := range graph {
+		for f := 0; f < factor; f++ {
+			for g := 0; g < factor; g++ {
+				newWeight := weight + f + g
+				for newWeight > 9 {
+					newWeight -= 9
 				}
+				expanded[Point{point.X + width*f, point.Y + height*g}] = newWeight
 			}
 		}
 	}
+	return expanded
+}
 
-	// Open set is empty but goal was never reached
-	return nil
+func part2(input []string) {
+	graph := make(map[Point]int)
+	for ri := range input {
+		for ci := range input[ri] {
+			n, err := strconv.Atoi(string(input[ri][ci]))
+			if err != nil {
+				panic(err)
+			}
+			graph[Point{X: ci, Y: ri}] = n
+		}
+	}
+
+	factor := 5
+
+	expanded := expandMap(graph, factor, len(input), len(input[0]))
+
+	fmt.Println(d(Point{0, 0}, Point{len(input)*factor - 1, len(input[0])*factor - 1}, expanded))
 }
