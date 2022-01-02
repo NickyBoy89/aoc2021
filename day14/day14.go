@@ -29,7 +29,7 @@ func main() {
 }
 
 func part1(template []rune, rules map[string]rune) {
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 10; i++ {
 		result := []rune{}
 		for ind, item := range template {
 			result = append(result, item)
@@ -61,7 +61,42 @@ func part1(template []rune, rules map[string]rune) {
 }
 
 func part2(template []rune, rules map[string]rune) {
-	counts := make(map[rune]int)
+	pairs := make(map[string]int)
+	for i := 0; i < len(template); i++ {
+		if i+1 < len(template) {
+			pairs[string(template[i:i+2])]++
+		}
+	}
 
+	charCounts := make(map[rune]int)
+
+	for _, char := range template {
+		charCounts[char]++
+	}
+
+	for step := 0; step < 40; step++ {
+		newCounts := make(map[string]int)
+		for item, count := range pairs {
+			charCounts[rules[item]] += count
+			newChar := string(rules[item])
+			newCounts[string(item[0])+newChar] += count
+			newCounts[newChar+string(item[1])] += count
+		}
+
+		pairs = newCounts
+	}
+
+	charCounts[template[0]]++
+
+	var max int
+	min := -1
+	for _, count := range charCounts {
+		if count > max {
+			max = count
+		}
+		if min == -1 || count < min {
+			min = count
+		}
+	}
 	fmt.Println(max - min)
 }
