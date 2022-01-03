@@ -5,127 +5,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 )
-
-type Num struct {
-	L, R     *Num
-	Val      int
-	exploded bool
-}
-
-func (n Num) String() string {
-	if n.L == nil && n.R == nil {
-		return strconv.Itoa(n.Val)
-	}
-	if n.exploded {
-		return fmt.Sprintf("[%v,%v]: EXPLODED", n.L, n.R)
-	}
-	return fmt.Sprintf("[%v,%v]", n.L, n.R)
-}
-
-func (n Num) IsNum() bool {
-	return n.L == nil && n.R == nil
-}
-
-func (n *Num) Add(other *Num) {
-	n.L = &Num{L: n.L, R: n.R}
-	n.R = other
-}
-
-func (n *Num) MarkExplodable(depth int) {
-	// Since we always go to the leftmost branch first, this should give the
-	// first pair to be exploded
-	if depth == 4 {
-		n.exploded = true
-		return
-	}
-	if n.L != nil {
-		n.L.MarkExplodable(depth + 1)
-	}
-	if n.R != nil {
-		n.R.MarkExplodable(depth + 1)
-	}
-}
-
-func (n *Num) Reduce() {
-	changed := true
-	for changed {
-		_, _, changed = n.reduce(0, 0, 0, false)
-	}
-}
-
-func (n *Num) reduce(d, ladd, radd int, changed bool) (l, r int, change bool) {
-	// If any pair is nested 4 deep, then explode it and start returning down
-	// the values to add to other pairs
-	if !changed && d == 4 && !n.IsNum() {
-		fmt.Println(n)
-		n.exploded = true
-		if n.L != nil {
-			l = n.L.Val
-		}
-		if n.R != nil {
-			r = n.R.Val
-		}
-		return l, r, true
-	}
-
-	if n.L != nil {
-		// If the left branch is a number greater than 10, split it into a pair
-		if !changed && n.L.IsNum() && n.L.Val > 10 {
-			n.L = &Num{L: &Num{Val: n.L.Val / 2}, R: &Num{Val: (n.L.Val / 2) + 1}}
-			return 0, 0, true
-		}
-
-		if n.L.IsNum() {
-			n.L.Val += radd
-			radd = 0
-		}
-
-		// Reduce the left nested pair first
-		l, r, change = n.L.reduce(d+1, ladd, radd, changed)
-		if change {
-			changed = true
-		}
-		// If the right is a number, then add to it and reset the number
-		if n.R.IsNum() {
-			n.R.Val += r
-			r = 0
-		}
-
-		// If that same pair was exploded, then remove it and replace it with a zero
-		if n.L.exploded {
-			n.L = &Num{Val: 0}
-		}
-	}
-
-	if n.R != nil {
-		// If the left branch is a number greater than 10, split it into a pair
-		if !changed && n.R.IsNum() && n.R.Val > 10 {
-			n.R = &Num{L: &Num{Val: n.R.Val / 2}, R: &Num{Val: (n.R.Val / 2) + 1}}
-			return 0, 0, true
-		}
-
-		if n.R.IsNum() {
-			n.R.Val += ladd
-			ladd = 0
-		}
-
-		l, r, change = n.R.reduce(d+1, l, r, changed)
-		if change {
-			changed = true
-		}
-		if n.L.IsNum() {
-			n.L.Val += l
-			l = 0
-		}
-
-		if n.R.exploded {
-			n.R = &Num{Val: 0}
-		}
-	}
-
-	return l, r, changed
-}
 
 func IndexWithSkip(input string, target rune) int {
 	var balance int
@@ -142,6 +23,117 @@ func IndexWithSkip(input string, target rune) int {
 		}
 	}
 	return -1
+}
+
+func MatchingBracket(input string, ind int) int {
+	balance := 0
+	for i := ind; i < len(input); i++ {
+		switch rune(input[i]) {
+		case '[':
+			balance--
+		case ']':
+			balance++
+			if balance == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func nextNum(input string, ind, increment int) []int {
+	start := -1
+	for i := ind; i < len(input) && i > 0; i += increment {
+		if unicode.IsDigit(rune(input[i])) {
+			if start == -1 {
+				start = i
+			}
+		} else if start != -1 {
+			return []int{start, i}
+		}
+	}
+	return nil
+}
+
+func reduce(input string, split bool) (string, bool) {
+	balance := -1
+	lastDigit := 0
+	for i := 1; i < len(input); i++ {
+		switch rune(input[i]) {
+		case '[':
+			// Nested inside four pairs, explode it
+			if balance == -4 {
+				end := MatchingBracket(input, i)
+				explodedPair := input[i+1 : end]
+				explosionNumbers := strings.Split(explodedPair, ",")
+				// Replace the pair with a "0"
+				input = input[:i] + "0" + input[end+1:]
+				// Increment the first number to the right
+				ni := nextNum(input, i+1, 1)
+				if ni != nil {
+					n, err := strconv.Atoi(input[ni[0]:ni[1]])
+					if err != nil {
+						panic(err)
+					}
+					n1, err := strconv.Atoi(explosionNumbers[1])
+					if err != nil {
+						panic(err)
+					}
+					input = input[:ni[0]] + strconv.Itoa(n+n1) + input[ni[1]:]
+				}
+				ni = nextNum(input, i-1, -1)
+				if ni != nil {
+					n, err := strconv.Atoi(input[ni[1]+1 : ni[0]+1])
+					if err != nil {
+						panic(err)
+					}
+					n1, err := strconv.Atoi(explosionNumbers[0])
+					if err != nil {
+						panic(err)
+					}
+					input = input[:ni[1]+1] + strconv.Itoa(n+n1) + input[ni[0]+1:]
+				}
+				return input, true
+			}
+			balance--
+			lastDigit = i + 1
+		case ']', ',': // Signal a number literal
+			if i-lastDigit > 0 && split {
+				n, err := strconv.Atoi(input[lastDigit:i])
+				if err != nil {
+					panic(err)
+				}
+				// Split if 10 or greater
+				if n >= 10 {
+					var splitPair string
+					if n%2 == 0 { // If odd, both pairs are equal
+						splitPair = fmt.Sprintf("[%v,%v]", n/2, n/2)
+					} else { // Even, the right pair should be one more
+						splitPair = fmt.Sprintf("[%v,%v]", n/2, n/2+1)
+					}
+					input = input[:lastDigit] + splitPair + input[i:]
+					return input, true
+				}
+			}
+			lastDigit = i + 1
+			if rune(input[i]) == ']' {
+				balance++
+			}
+		}
+	}
+	return input, false
+}
+
+type Num struct {
+	L, R *Num
+	Val  int
+}
+
+func (n Num) Magnitude() int {
+	if n.L == nil && n.R == nil {
+		return n.Val
+	}
+	return 3*n.L.Magnitude() + 2*n.R.Magnitude()
 }
 
 func Parse(line string) *Num {
@@ -172,15 +164,43 @@ func main() {
 	part2(input)
 }
 
-func part1(input []string) {
-	total := Parse(input[0])
-	for _, inp := range input[1:] {
-		fmt.Printf("%v + %v = ", total, Parse(inp))
-		total.Add(Parse(inp))
-		total.MarkExplodable(0)
-		fmt.Printf("%v\n", total)
+func Reduce(input string) string {
+	changed := true
+	for changed {
+		// Repeatedly try and explode numbers until there are no more
+		input, changed = reduce(input, false)
+		if changed {
+			continue
+		}
+		// If no explosions, start reducing
+		input, changed = reduce(input, true)
 	}
+	return input
+}
+
+func part1(input []string) {
+	total := input[0]
+	for _, inp := range input[1:] {
+		total = fmt.Sprintf("[%v,%v]", total, inp)
+		total = Reduce(total)
+	}
+
+	parsedTotal := Parse(total)
+	fmt.Println(parsedTotal.Magnitude())
 }
 
 func part2(input []string) {
+	var max int
+	for fi, first := range input {
+		for si, second := range input {
+			if fi == si {
+				continue
+			}
+			mag := Parse(Reduce(fmt.Sprintf("[%v,%v]", first, second))).Magnitude()
+			if mag > max {
+				max = mag
+			}
+		}
+	}
+	fmt.Println(max)
 }
